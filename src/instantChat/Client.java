@@ -4,72 +4,84 @@ import java.net.*;
 
 class Client {
 	
-	static final String endMsg = "\r";
-	
-	BufferedReader fromUser;
-	DataOutputStream send;
-	BufferedReader recieve;
-	Socket s;
-	String msg;
-	String username;
+	private BufferedReader userInputReader;
+	private DataOutputStream outputStream;
+	private BufferedReader serverInputReader;
 	
 	public Client (Socket s) throws IOException {
 		
-		this.fromUser = new BufferedReader(new InputStreamReader(System.in));
+		this.userInputReader = new BufferedReader(new InputStreamReader(System.in));
 		
-		this.s = s;
-		
-		this.send = new DataOutputStream(this.s.getOutputStream());
-		this.recieve = new BufferedReader(new InputStreamReader(this.s.getInputStream()));
+		this.outputStream = new DataOutputStream(s.getOutputStream());
+		this.serverInputReader = new BufferedReader(new InputStreamReader(s.getInputStream()));
 	}
 	
 	public void start() throws IOException {
-		this.msg = this.recieve.readLine();
-		System.out.println(this.msg);
+		
+		// Receive and write intro message
+		String msg = this.serverInputReader.readLine();
+		System.out.println(msg);
 
         getUsername();
         
         new Thread() {
             public void run() {
-                listenForMessages();
+                listenForServerMessages();
             }
         }.start();
         
-        while (true) {
-        	this.msg = fromUser.readLine();
-        	this.send.writeBytes(this.msg + endMsg);
-        }
+        listenForClientMessages();
 	}
 	
-	public void listenForMessages() {
+	public void listenForServerMessages() {
 		while (true) {
-			String msg;
 			try {
-				msg = this.recieve.readLine();
+				String msg = this.serverInputReader.readLine();
 				System.out.println(msg);
+			} catch (SocketException e) {
+				return;
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
 	
+	public void listenForClientMessages() {
+        while (true) {
+        	try {
+        		String msg = userInputReader.readLine();
+				this.outputStream.writeBytes(msg + System.lineSeparator());
+			} catch (SocketException e) {
+				System.err.println("Lost connection to server");
+				return;
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+        }
+	}
+	
 	public void getUsername() throws IOException {
 		
-		this.msg = this.recieve.readLine();
-		System.out.print(this.msg);
+		System.out.print("Please enter your username: ");
 		
-		this.username = fromUser.readLine();
-		this.send.writeBytes(this.username + endMsg);
+		String username = userInputReader.readLine();
+		this.outputStream.writeBytes(username + System.lineSeparator());
 		
 	}
 	
-	public static void main(String argv[]) throws Exception {
+	public static void main(String argv[]) {
 		
-		System.out.println("Client Running");
-		Socket clientSocket = new Socket("localhost", 6789);
+		System.out.println("Client Starting");
 		
-		new Client(clientSocket).start();
-		clientSocket.close(); 
+		try {
+			Socket clientSocket = new Socket("localhost", 6789);
+			new Client(clientSocket).start();
+			clientSocket.close(); 
+		} catch(ConnectException e) {
+			System.err.println("Sorry, could not connect to server");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 		
 	}
  }
