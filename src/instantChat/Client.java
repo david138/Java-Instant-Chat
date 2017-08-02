@@ -4,39 +4,55 @@ import java.net.*;
 
 class Client {
 	
-	private BufferedReader userInputReader;
-	private DataOutputStream outputStream;
-	private BufferedReader serverInputReader;
-	
-	public Client (Socket s) throws IOException {
-		
-		this.userInputReader = new BufferedReader(new InputStreamReader(System.in));
-		
-		this.outputStream = new DataOutputStream(s.getOutputStream());
-		this.serverInputReader = new BufferedReader(new InputStreamReader(s.getInputStream()));
-	}
-	
-	public void start() throws IOException {
-		
-		// Receive and write intro message
-		String msg = this.serverInputReader.readLine();
-		System.out.println(msg);
+	private String host;
+	private int port;
 
-        getUsername();
-        
-        new Thread() {
-            public void run() {
-                listenForServerMessages();
-            }
-        }.start();
-        
-        listenForClientMessages();
+	
+	public Client (String host, int port) throws IOException {
+		this.host = host;
+		this.port = port;
 	}
 	
-	public void listenForServerMessages() {
+	public void start() throws InterruptedException {
+		
+		try {
+			Socket clientSocket = new Socket(this.host, this.port);
+			
+			BufferedReader userInputReader = new BufferedReader(new InputStreamReader(System.in));
+			
+			DataOutputStream outputStream = new DataOutputStream(clientSocket.getOutputStream());
+			BufferedReader serverInputReader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+			
+		    getUsername(userInputReader, outputStream);
+			
+		    new Thread() {
+		        public void run() {
+		            listenForServerMessages(serverInputReader);
+		        }
+		    }.start();
+		    
+		    Thread listenForUser = new Thread() {
+		        public void run() {
+		        	listenForClientMessages(userInputReader, outputStream);
+		        }
+		    };
+		    
+		    listenForUser.start();
+		    listenForUser.join();
+		    
+		    clientSocket.close();
+			
+		} catch(ConnectException e) {
+			System.err.println("Sorry, could not connect to server");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}	    
+	}
+	
+	public void listenForServerMessages(BufferedReader serverInputReader) {
 		while (true) {
 			try {
-				String msg = this.serverInputReader.readLine();
+				String msg = serverInputReader.readLine();
 				System.out.println(msg);
 			} catch (SocketException e) {
 				return;
@@ -46,11 +62,12 @@ class Client {
 		}
 	}
 	
-	public void listenForClientMessages() {
-        while (true) {
+	public void listenForClientMessages(BufferedReader userInputReader, DataOutputStream outputStream) {
+		String msg = "";
+        while (!msg.equals("/leave")) {
         	try {
-        		String msg = userInputReader.readLine();
-				this.outputStream.writeBytes(msg + System.lineSeparator());
+        		msg = userInputReader.readLine();
+				outputStream.writeBytes(msg + System.lineSeparator());
 			} catch (SocketException e) {
 				System.err.println("Lost connection to server");
 				return;
@@ -60,28 +77,19 @@ class Client {
         }
 	}
 	
-	public void getUsername() throws IOException {
+	public void getUsername(BufferedReader userInputReader, DataOutputStream outputStream) throws IOException {
 		
-		System.out.print("Please enter your username: ");
+		System.out.print("You are connected, please enter your username: ");
 		
 		String username = userInputReader.readLine();
-		this.outputStream.writeBytes(username + System.lineSeparator());
+		outputStream.writeBytes(username + System.lineSeparator());
 		
 	}
 	
-	public static void main(String argv[]) {
+	public static void main(String argv[]) throws InterruptedException, IOException {
 		
 		System.out.println("Client Starting");
-		
-		try {
-			Socket clientSocket = new Socket("localhost", 6789);
-			new Client(clientSocket).start();
-			clientSocket.close(); 
-		} catch(ConnectException e) {
-			System.err.println("Sorry, could not connect to server");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		new Client("localhost", 6789).start();
 		
 	}
  }
