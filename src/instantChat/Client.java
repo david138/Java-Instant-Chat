@@ -48,7 +48,7 @@ class Client {
                 }
             }
         } catch (IOException e) {
-        	e.printStackTrace();
+            e.printStackTrace();
         }
     }
 	
@@ -63,7 +63,7 @@ class Client {
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-	        close();
+            close();
         }
     }
 	
