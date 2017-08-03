@@ -1,71 +1,71 @@
 package instantChat;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
+import java.util.*;
 
 public class Server {
 	
-	static ArrayList<ClientMessenger> clients = new ArrayList<ClientMessenger>();
-	
-	public static void main(String argv[]) throws Exception {
-		
-		ServerSocket welcomeSocket = new ServerSocket(6789);		
-		
+    private int port;
+    private List<ClientMessenger> clients;
+  
+    public Server(int port) {
+        this.port = port;
+    }
+  
+    public void start() throws IOException {
+        ServerSocket welcomeSocket = new ServerSocket(this.port);		
+	    this.clients = Collections.synchronizedList(new ArrayList<ClientMessenger>());	
+      
 		while (true) {
-			
 			Socket connectionSocket = welcomeSocket.accept();
-			
-            // new thread for a client
-            ClientMessenger client = new ClientMessenger(connectionSocket);
-            clients.add(client);
+            ClientMessenger client = new ClientMessenger(connectionSocket, this);
+            this.clients.add(client);
             client.start();
+        }
+    }
+	
+	public void broadcast(String msg, String username) throws IOException {
+        synchronized (this.clients) {
+		    for (ClientMessenger client : this.clients) {
+            	client.send(msg, username);
+            }
         }
 	}
 	
-	public static void sendToClients(String msg, String username) throws IOException {
-		for (int i = 0; i < clients.size(); i++) {
-			clients.get(i).sendToClient(msg, username);
-		}
-	}
-	
-	public static void removeClient(ClientMessenger client, String username) throws IOException {
-		clients.remove(client);
-		sendToClients(username + " left!", username);
+	public void removeClient(ClientMessenger client, String username) throws IOException {
+		this.clients.remove(client);
+		broadcast(username + " left!", username);
 		System.out.println(clients.size() + " clients are connected");
+	}
+  
+    public static void main(String argv[]) throws Exception {
+        new Server(6789).start();
 	}
 }
 
 class ClientMessenger extends Thread {
 	
-	BufferedReader inputReader;
-	DataOutputStream outputStream;
-	String username;
+	private BufferedReader inputReader;
+	private DataOutputStream outputStream;
+	private String username;
+    private Server server;
 	
-	public ClientMessenger(Socket socket) throws IOException {
+	public ClientMessenger(Socket socket, Server server) throws IOException {
 		this.inputReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 		this.outputStream = new DataOutputStream(socket.getOutputStream());
+        this.server = server;
 	}
 	
 	public void run() {
 		
 		try {
-			
-			// get username
 			this.username = this.inputReader.readLine();
-			
-			//send welcome message
 			this.outputStream.writeBytes("Welcome to the server " + this.username + "!" + System.lineSeparator());
-			
-			//send join message to other users
-			Server.sendToClients(this.username + " joined!", this.username);
+			this.server.broadcast(this.username + " joined!", this.username);
 		
 			String msg = inputReader.readLine();
-			while (!msg.equals("/leave")) {
-				Server.sendToClients(this.username + ": " + msg, this.username);
+			while (!"/leave".equals(msg)) {
+				server.broadcast(this.username + ": " + msg, this.username);
 				msg = inputReader.readLine();
 			}
 			
@@ -74,17 +74,16 @@ class ClientMessenger extends Thread {
 			e.printStackTrace();
 		} finally {
 			try {
-				Server.removeClient(this, this.username);
+				server.removeClient(this, this.username);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
 	
-	public void sendToClient(String msg, String username) throws IOException {
+	public void send(String msg, String username) throws IOException {
 		if (!username.equals(this.username)) {
 			this.outputStream.writeBytes(msg + System.lineSeparator());
 		}
 	}
 }
-

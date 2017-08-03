@@ -16,23 +16,23 @@ class Client {
     public void start() throws InterruptedException {	
         try {
             this.clientSocket = new Socket(this.host, this.port);		
-            BufferedReader userInputReader = new BufferedReader(new InputStreamReader(System.in));	
+            BufferedReader userReader = new BufferedReader(new InputStreamReader(System.in));	
             DataOutputStream outputStream = new DataOutputStream(this.clientSocket.getOutputStream());
-            BufferedReader serverInputReader = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
+            BufferedReader serverReader = new BufferedReader(new InputStreamReader(this.clientSocket.getInputStream()));
 			
-            promptForUsername(userInputReader, outputStream);
+            promptForUsername(userReader, outputStream);
 			
             new Thread() {
                 public void run() {
-                    listenForServerMessages(serverInputReader);
+                    listenForServerMessages(serverReader);
                 }
             }.start();	    
             new Thread() {
                 public void run() {
-                    listenForClientMessages(userInputReader, outputStream);
+                    listenForClientMessages(userReader, outputStream);
                 }
             }.start();	
-        } catch(ConnectException e) {
+        } catch (ConnectException e) {
             System.err.println("Sorry, could not connect to server");
         } catch (IOException e) {
             e.printStackTrace();
@@ -41,10 +41,12 @@ class Client {
 	
     public void close() {
         try {
-            synchronized(this.clientSocket) {
-                if (this.clientSocket != null) {
-                    this.clientSocket.close();
-                    this.clientSocket = null;
+        	if (this.clientSocket != null) {
+                synchronized (this.clientSocket) {
+                    if (this.clientSocket != null) {
+                        this.clientSocket.close();
+                        this.clientSocket = null;
+                    }
                 }
             }
         } catch (IOException e) {
@@ -52,10 +54,10 @@ class Client {
         }
     }
 	
-    public void listenForServerMessages(BufferedReader serverInputReader) {
+    public void listenForServerMessages(BufferedReader serverReader) {
         try {
             while (true) {
-                String msg = serverInputReader.readLine();
+                String msg = serverReader.readLine();
                 System.out.println(msg);
             }
         } catch (SocketException e) {
@@ -67,11 +69,11 @@ class Client {
         }
     }
 	
-    public void listenForClientMessages(BufferedReader userInputReader, DataOutputStream outputStream) {
+    public void listenForClientMessages(BufferedReader userReader, DataOutputStream outputStream) {
         String msg = "";
         try {
-            while (!msg.equals("/leave")) {
-                msg = userInputReader.readLine();
+            while (!"/leave".equals(msg)) {
+                msg = userReader.readLine();
                 outputStream.writeBytes(msg + System.lineSeparator());
             }
         } catch (SocketException e) {
@@ -82,9 +84,9 @@ class Client {
         }
     }
 	
-    public void promptForUsername(BufferedReader userInputReader, DataOutputStream outputStream) throws IOException {
+    public void promptForUsername(BufferedReader userReader, DataOutputStream outputStream) throws IOException {
         System.out.print("You are connected, please enter your username: ");
-        String username = userInputReader.readLine();
+        String username = userReader.readLine();
         outputStream.writeBytes(username + System.lineSeparator());	
     }
 	
