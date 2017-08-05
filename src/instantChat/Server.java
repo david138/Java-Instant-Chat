@@ -61,23 +61,22 @@ class ClientMessenger extends Thread {
     }
     
     public void run() {
-    
-	    try {
-	        this.username = this.inputReader.readLine();
-	        this.outputStream.writeBytes("Welcome to the server " + this.username + "!" + System.lineSeparator());
-	        this.server.broadcast(this.username + " joined!", this.username);
-	    
-	        String msg = inputReader.readLine();
-	        while (!"/leave".equals(msg)) {
-	            server.broadcast(this.username + ": " + msg, this.username);
-	            msg = inputReader.readLine();
-	        }
-	    } catch (SocketException e) {
-	    } catch (IOException e) {
-	    e.printStackTrace();
-	    } finally {
-	        server.removeClient(this, this.username);
-	    }
+        try {
+            this.username = this.inputReader.readLine();
+            this.outputStream.writeBytes("Welcome to the server " + this.username + "!" + System.lineSeparator());
+            this.server.broadcast(this.username + " joined!", this.username);
+        
+            String msg = inputReader.readLine();
+            while (!"/leave".equals(msg)) {
+                server.broadcast(this.username + ": " + msg, this.username);
+                msg = inputReader.readLine();
+            }
+        } catch (SocketException e) {
+        } catch (IOException e) {
+        e.printStackTrace();
+        } finally {
+            server.removeClient(this, this.username);
+        }
     }
     
     public void send(String msg, String username) throws IOException {
